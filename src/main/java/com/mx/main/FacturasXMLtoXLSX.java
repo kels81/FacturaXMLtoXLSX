@@ -17,12 +17,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.apache.poi.ss.usermodel.Cell;
@@ -37,6 +39,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.poi.hssf.util.HSSFColor;
 
 /**
  *
@@ -46,7 +49,7 @@ public class FacturasXMLtoXLSX {
 
     private static File xmlFile;
     private static final Map<String, String> TRASLADADOS = new HashMap<>();
-    private static final String[] COLUMNS_HEADERS = {"XML", "RFC Emisor", "Nombre Emisor", "Sub Total", "Total impuesto Trasladado", "Total", "Traslado IVA: 16", "Traslado IEPS: 8"};
+    private static final String[] COLUMNS_HEADERS = {"XML", "RFC Emisor", "Nombre Emisor", "Sub Total", "Total impuesto Trasladado", "Total", "Traslado IVA: 16", "Traslado IEPS: 8", "BASE", "IVA", "TOTAL"};
     private static String label;
     private static final Logger LOGGER = Logger.getLogger("newexcel.ExcelOOXML");
     private static final String COMPROBANTE = "cfdi:Comprobante";
@@ -88,7 +91,12 @@ public class FacturasXMLtoXLSX {
 //        System.out.println("Tasa IVA: " + cfdi.getTasaIVA());
 //        System.out.println("Traslado IEPS: " + cfdi.getTrasladoIEPS());
 //        System.out.println("Tasa IEPS: " + cfdi.getTasaIEPS());
-        createXLSX(filesCFDI);
+        
+        createXLSX(filesCFDI
+                .stream()
+//                .filter(cfdi -> !cfdi.getTrasladoIVA().equals("0"))
+                .filter(cfdi -> Objects.nonNull(cfdi.getTrasladoIVA()) && Double.parseDouble(cfdi.getTrasladoIVA()) > 0)
+                .collect(Collectors.toList()));
 
     }
 
@@ -203,7 +211,7 @@ public class FacturasXMLtoXLSX {
                     Element elementName = (Element) nNode;
                     for (String tag : tags) {
                         //System.out.format("    " + tag + ": %s \n", elementName.getAttribute(tag));
-                        createCFDI(nNode.getNodeName(), tag, elementName.getAttribute(tag), cfdi);
+                        createCFDI(nNode.getNodeName(), tag, elementName.getAttribute(tag), cfdi);                        
                     }
                 }
             }
@@ -263,11 +271,22 @@ public class FacturasXMLtoXLSX {
         if (impuesto.equals("IVA") || impuesto.equals("002")) {
             cfdi.setTrasladoIVA(importe.equals("") ? "0" : importe);
             cfdi.setTasaIVA(tasa);
+            //createFormulasImpuestos(cfdi);
         } else {
             cfdi.setTrasladoIEPS(importe.equals("") ? "0" : importe);
             cfdi.setTasaIEPS(tasa);
         }
         TRASLADADOS.clear();
+    }
+    
+    private static void createFormulasImpuestos(CFDI cfdi) {
+        Double base = Double.parseDouble(cfdi.getTrasladoIVA()) / 0.16;
+        Double iva = base * 0.16;
+        Double total = base + iva;
+        
+        cfdi.setBase(base);
+        cfdi.setIva(iva);
+        cfdi.setTotalImp(total);
     }
 
     private static String objectToJson(Object object) {
@@ -291,9 +310,34 @@ public class FacturasXMLtoXLSX {
 
         // Creamos el estilo para las celdas del encabezado
         CellStyle headerStyle = workbook.createCellStyle();
-        Font font = workbook.createFont();
-        font.setBold(true);
-        headerStyle.setFont(font);
+        Font fontBold = workbook.createFont();
+        fontBold.setBold(true);
+        headerStyle.setFont(fontBold);
+        
+        // Creamos el estilo para las celdas de tipo currency y cursiva
+        CellStyle currencyCursiveStyle = workbook.createCellStyle();
+        currencyCursiveStyle.setDataFormat((short)8);
+        Font fontItalic = workbook.createFont();
+        fontItalic.setItalic(true);
+        fontItalic.setColor(HSSFColor.HSSFColorPredefined.LIGHT_BLUE.getIndex());
+        currencyCursiveStyle.setFont(fontItalic);
+        
+        // Creamos el estilo para las celdas de tipo currency y cursiva
+        CellStyle boldCursiveStyle = workbook.createCellStyle();
+        Font fontBoldCursive = workbook.createFont();
+        fontBoldCursive.setBold(true);
+        fontBoldCursive.setItalic(true);
+        fontBoldCursive.setColor(HSSFColor.HSSFColorPredefined.LIGHT_BLUE.getIndex());
+        boldCursiveStyle.setFont(fontBoldCursive);
+        
+        // Creamos el estilo para las celdas de tipo currency y negrita
+        CellStyle currencyBoldStyle = workbook.createCellStyle();
+        currencyBoldStyle.setDataFormat((short)8);
+        currencyBoldStyle.setFont(fontBold);
+        
+        // Creamos el estilo para las celdas de tipo currency
+        CellStyle currencyStyle = workbook.createCellStyle();
+        currencyStyle.setDataFormat((short)8);
 
         // Creamos una fila en la hoja en la posicion 0
         Row headerRow = pagina.createRow(0);
@@ -309,12 +353,15 @@ public class FacturasXMLtoXLSX {
             // que hemos creado
             celda.setCellStyle(headerStyle);
             celda.setCellValue(COLUMNS_HEADERS[i]);
+            if (COLUMNS_HEADERS[i].equals("BASE")) {
+                celda.setCellStyle(boldCursiveStyle);
+            }
         }
 
         int i = 0;
         for (CFDI cfdi : listCFDI) {
             Row dataRow = pagina.createRow(i + 1);
-
+            
 //            //Se convierte el jason a map para recorrerlo
 //            Gson gson = new Gson();
 //            Map<String, String> map = setCellValues(gson.fromJson(objectToJson(cfdi), new TypeToken<Map<String, String>>() {}.getType()));
@@ -337,16 +384,46 @@ public class FacturasXMLtoXLSX {
             //System.out.println("val3 = " + cfdi.getTotal());
             dataRow.createCell(6).setCellValue(cfdi.getTrasladoIVA() == null ? 0 : setDecimal(cfdi.getTrasladoIVA()));
             dataRow.createCell(7).setCellValue(cfdi.getTrasladoIEPS() == null ? 0 : setDecimal(cfdi.getTrasladoIEPS()));
+            
+            Cell cellBase =dataRow.createCell(8);
+            //cellBase.setCellValue(cfdi.getBase() == null ? 0 : cfdi.getBase());
+            cellBase.setCellStyle(currencyCursiveStyle);
+            cellBase.setCellFormula("G"+(i+2)+"/0.16");
+            Cell cellIva = dataRow.createCell(9);
+            //cellIva.setCellValue(cfdi.getIva() == null ? 0 : cfdi.getIva());
+            cellIva.setCellStyle(currencyStyle);
+            cellIva.setCellFormula("I"+(i+2)+"*0.16");
+            Cell cellTotal = dataRow.createCell(10);
+            //cellTotal.setCellValue(cfdi.getTotalImp() == null ? 0 : cfdi.getTotalImp());
+            cellTotal.setCellStyle(currencyStyle);
+            cellTotal.setCellFormula("SUM(I"+(i+2)+":J"+(i+2)+")");
+            
             i++;
+            
         }
+        
+        // Creamos una fila suma total en la hoja
+        Row totalRow = pagina.createRow(listCFDI.size() + 1);
+        Cell cellTotalBase = totalRow.createCell(8);
+        cellTotalBase.setCellFormula("SUM(I2:I"+(listCFDI.size()+1)+")");
+        cellTotalBase.setCellStyle(currencyBoldStyle);
+        
+        Cell cellTotalIva = totalRow.createCell(9);
+        cellTotalIva.setCellFormula("SUM(J2:J"+(listCFDI.size()+1)+")");
+        cellTotalIva.setCellStyle(currencyBoldStyle);
+        
+        Cell cellTotal = totalRow.createCell(10);
+        cellTotal.setCellFormula("SUM(K2:K"+(listCFDI.size()+1)+")");
+        cellTotal.setCellStyle(currencyBoldStyle);
+        
 
         guardarArchivoXLSX(workbook);
     }
 
-    private static Double setDecimal(String value) {
+    private static Double setDecimal(String value) {        
         return new BigDecimal(value).doubleValue();
     }
-
+   
     private static Map<String, String> setCellValues(Map<String, String> map) {
 
         Map<String, String> mapCellValues = new HashMap<>();
@@ -385,7 +462,7 @@ public class FacturasXMLtoXLSX {
             // Cerramos el libro para concluir operaciones
             workbook.close();
 
-            LOGGER.log(Level.INFO, "Archivo creado existosamente en {0}", xlsxFile.getAbsolutePath());
+            LOGGER.log(Level.INFO, "Archivo creado exitosamente en {0}", xlsxFile.getAbsolutePath());
 
         } catch (FileNotFoundException ex) {
             LOGGER.log(Level.SEVERE, "Archivo no localizable en sistema de archivos");

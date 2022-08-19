@@ -30,6 +30,9 @@ public class CFDI {
     private String tasaIVA;
     private String trasladoIEPS;
     private String tasaIEPS;
+    private Double base;
+    private Double iva;
+    private Double totalImp;
     
     public CFDI() {
         
@@ -186,6 +189,30 @@ public class CFDI {
 
     public void setTasaIEPS(String tasaIEPS) {
         this.tasaIEPS = tasaIEPS;
+    }
+    
+    public Double getBase() {
+        return base;
+    }
+
+    public void setBase(Double base) {
+        this.base = base;
+    }
+
+    public Double getIva() {
+        return iva;
+    }
+
+    public void setIva(Double iva) {
+        this.iva = iva;
+    }
+
+    public Double getTotalImp() {
+        return totalImp;
+    }
+
+    public void setTotalImp(Double totalImp) {
+        this.totalImp = totalImp;
     }
 
 }
