@@ -21,24 +21,27 @@ public class CFDI {
     private String rfcReceptor;
     private String nombreReceptor;
     private String moneda;
+    private String usoCFDI;
     private String formaDePago;
     private String metodoDePago;
+    private String tipoDeComprobante;
     private String subTotal;
     private String total;
     private String totalImpuestoTrasladados;
+
     private String trasladoIVA;
     private String tasaIVA;
+
     private String trasladoIEPS;
     private String tasaIEPS;
+
     private Double base;
     private Double iva;
     private Double totalImp;
     
-    public CFDI() {
-        
-    }
+    public CFDI() { }
 
-    public CFDI(String nombreArchivo, String fecha, String lugarExpedicion, String rfcEmisor, String nombreEmisor, String rfcReceptor, String nombreReceptor, String moneda, String formaDePago, String metodoDePago, String subTotal, String total) {
+    public CFDI(String nombreArchivo, String fecha, String lugarExpedicion, String rfcEmisor, String nombreEmisor, String rfcReceptor, String nombreReceptor, String moneda, String usoCFDI, String formaDePago, String tipoDeComprobante, String metodoDePago, String subTotal, String total) {
         this.nombreArchivo = nombreArchivo;
         this.fecha = fecha;
         this.lugarExpedicion = lugarExpedicion;
@@ -47,12 +50,13 @@ public class CFDI {
         this.rfcReceptor = rfcReceptor;
         this.nombreReceptor = nombreReceptor;
         this.moneda = moneda;
+        this.usoCFDI = usoCFDI;
         this.formaDePago = formaDePago;
+        this.tipoDeComprobante = tipoDeComprobante;
         this.metodoDePago = metodoDePago;
         this.subTotal = subTotal;
         this.total = total;
     }
-    
     
 
     public String getNombreArchivo() {
@@ -119,6 +123,10 @@ public class CFDI {
         this.moneda = moneda;
     }
 
+    public String getUsoCFDI() { return usoCFDI; }
+
+    public void setUsoCFDI(String usoCFDI) { this.usoCFDI = usoCFDI; }
+
     public String getFormaDePago() {
         return formaDePago;
     }
@@ -126,6 +134,10 @@ public class CFDI {
     public void setFormaDePago(String formaDePago) {
         this.formaDePago = formaDePago;
     }
+
+    public String getTipoDeComprobante() { return tipoDeComprobante; }
+
+    public void setTipoDeComprobante(String tipoDeComprobante) { this.tipoDeComprobante = tipoDeComprobante; }
 
     public String getMetodoDePago() {
         return metodoDePago;
@@ -155,9 +167,7 @@ public class CFDI {
         return totalImpuestoTrasladados;
     }
 
-    public void setTotalImpuestoTrasladados(String totalImpuestoTrasladados) {
-        this.totalImpuestoTrasladados = totalImpuestoTrasladados;
-    }
+    public void setTotalImpuestoTrasladados(String totalImpuestoTrasladados) { this.totalImpuestoTrasladados = totalImpuestoTrasladados; }
 
     public String getTrasladoIVA() {
         return trasladoIVA;

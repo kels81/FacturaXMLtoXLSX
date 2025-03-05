@@ -1,473 +1,469 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package com.mx.main;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.mx.bean.CFDI;
 import com.mx.utils.Constantes;
-import com.mx.utils.TagsCFDI_32;
-import com.mx.utils.TagsCFDI_33;
+import com.mx.utils.XmlNode;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.w3c.dom.*;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.Font;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.apache.commons.io.FilenameUtils;
-import org.apache.poi.hssf.util.HSSFColor;
 
-/**
- *
- * @author Edrd
- */
+import static com.mx.utils.MetodoPago.PPD;
+import static com.mx.utils.MetodoPago.PUE;
+import static com.mx.utils.UsoCFDI.G03;
+
 public class FacturasXMLtoXLSX {
 
-    private static File xmlFile;
-    private static final Map<String, String> TRASLADADOS = new HashMap<>();
-    private static final String[] COLUMNS_HEADERS = {"XML", "RFC Emisor", "Nombre Emisor", "Sub Total", "Total impuesto Trasladado", "Total", "Traslado IVA: 16", "Traslado IEPS: 8", "BASE", "IVA", "TOTAL"};
-    private static String label;
+    private static final Set<String> SPECIAL_COLUMNS = Set.of("BASE", "SUB TOTAL", "IVA");
+    private static final String ZERO = "0";
     private static final Logger LOGGER = Logger.getLogger("newexcel.ExcelOOXML");
-    private static final String COMPROBANTE = "cfdi:Comprobante";
+    private static final Map<String, String> TRASLADADOS = new HashMap<>();
+    private static String LABEL;
+    private static String DIRECTORY;
+    private static final String[] COLUMNS_HEADERS = {"XML", "Metodo\nPago", "Uso\nCFDI", "Tipo\nComprobante", "RFC\nEmisor", "Nombre\nEmisor", "SUB TOTAL", "Total\nImpuesto Trasladado", "Total", "Traslado\nIVA: 16", "BASE", "IVA", "TOTAL"};
 
-    /**
-     * @param args the command line arguments
-     */
+    private static final DocumentBuilderFactory FACTORY = DocumentBuilderFactory.newInstance();
+
     public static void main(String[] args) {
-        String[] array = Constantes.DIRECTORY.split("\\\\");
-        //System.out.println("array1 = " + array.length);
-        //System.out.println("array = " + Arrays.toString(array));
-        //int index = Arrays.asList(array).indexOf(Constantes.ROOT_DIRECTORY);        //CAMBIAR VALOR EN CONSTANTES PAR NILA
-        //String[] newArray = Arrays.copyOfRange(array, index, array.length);
-        //System.out.println("newArray1 = " + newArray.length);
-        //System.out.println("newArray = " + Arrays.toString(newArray));
-        //System.out.println("index = " + index);
-        //System.out.println("Parent = " + new File(Constantes.DIRECTORY).getParent());
+        int noMes = 1;
+        DIRECTORY = Constantes.getDirectoryForMonth(noMes);
+        LABEL = Constantes.getMonthName(noMes).toUpperCase();
 
-        label = array[array.length - 1].substring(3).toUpperCase();
-        List<CFDI> filesCFDI = cfdiFile(new File(Constantes.DIRECTORY));
+        List<CFDI> filesCFDI = cfdiFile(new File(DIRECTORY));
 
-        System.out.println("filesCFDI = " + filesCFDI.size());
+        /*int count = 1;
+        for (CFDI cfdi : filesCFDI) {
+            System.out.println("***********************************************************************");
+            System.out.println("### = " + count);
+            System.out.println("Nombre: " + cfdi.getNombreArchivo());
+            System.out.println("Fecha: " + cfdi.getFecha());
+            System.out.println("Lugar Expedicion: " + cfdi.getLugarExpedicion());
+            System.out.println("RFC Emisor: " + cfdi.getRfcEmisor());
+            System.out.println("Nombre Emisor: " + cfdi.getNombreEmisor());
+            System.out.println("RFC Receptor: " + cfdi.getRfcReceptor());
+            System.out.println("Nombre Receptor: " + cfdi.getNombreReceptor());
+            System.out.println("Moneda: " + cfdi.getMoneda());
+            System.out.println("Forma Pago: " + cfdi.getFormaDePago());
+            System.out.println("Metodo Pago: " + cfdi.getMetodoDePago());
+            System.out.println("Subtotal: " + cfdi.getSubTotal());
+            System.out.println("Total: " + cfdi.getTotal());
+            System.out.println("Total Imp Trasladados: " + cfdi.getTotalImpuestoTrasladados());
+            System.out.println("Traslado IVA: " + cfdi.getTrasladoIVA());
+            System.out.println("Tasa IVA: " + cfdi.getTasaIVA());
+            System.out.println("Traslado IEPS: " + cfdi.getTrasladoIEPS());
+            System.out.println("Tasa IEPS: " + cfdi.getTasaIEPS());
+            count++;
+        }*/
 
-//        System.out.println("***********************************************************************");
-//        System.out.println("Nombre: " + cfdi.getNombreArchivo());
-//        System.out.println("Fecha: " + cfdi.getFecha());
-//        System.out.println("Lugar Expedicion: " + cfdi.getLugarExpedicion());
-//        System.out.println("RFC Emisor: " + cfdi.getRfcEmisor());
-//        System.out.println("Nombre Emisor: " + cfdi.getNombreEmisor());
-//        System.out.println("RFC Receptor: " + cfdi.getRfcReceptor());
-//        System.out.println("Nombre Receptor: " + cfdi.getNombreReceptor());
-//        System.out.println("Modena: " + cfdi.getMoneda());
-//        System.out.println("Forma Pago: " + cfdi.getFormaDePago());
-//        System.out.println("Metodo Pago: " + cfdi.getMetodoDePago());
-//        System.out.println("Subtotal: " + cfdi.getSubTotal());
-//        System.out.println("Total: " + cfdi.getTotal());
-//        System.out.println("Total Imp Trasladados: " + cfdi.getTotalImpuestoTrasladados());
-//        System.out.println("Traslado IVA: " + cfdi.getTrasladoIVA());
-//        System.out.println("Tasa IVA: " + cfdi.getTasaIVA());
-//        System.out.println("Traslado IEPS: " + cfdi.getTrasladoIEPS());
-//        System.out.println("Tasa IEPS: " + cfdi.getTasaIEPS());
-        
-        createXLSX(filesCFDI
+        /*createXLSX(filesCFDI
                 .stream()
-//                .filter(cfdi -> !cfdi.getTrasladoIVA().equals("0"))
+                //.filter(cfdi -> !cfdi.getTrasladoIVA().equals("0"))
                 .filter(cfdi -> Objects.nonNull(cfdi.getTrasladoIVA()) && Double.parseDouble(cfdi.getTrasladoIVA()) > 0)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList()));*/
 
+        // Ordenar la lista por RFC del emisor
+        filesCFDI.sort(Comparator.comparing(CFDI::getRfcEmisor));
+
+        createXLSX(filesCFDI);
     }
 
     private static List<CFDI> cfdiFile(File directory) {
-        List<CFDI> filesCFDI = new ArrayList<>();
-
-        File[] filesXML = directory.listFiles();
-        for (File file : filesXML) {
-            String extension = FilenameUtils.getExtension(file.getPath()).toLowerCase();
-            if (!extension.equals("zip")) {
-                CFDI cfdi = new CFDI();
-                Document xmlDoc = getDocument(file.getPath());
-                //xmlDoc.getDocumentElement().normalize();
-
-//                List<String[]> allCFDITags = new ArrayList<>();
-//                for (TagsCFDI_32 tagCDFI : TagsCFDI_32.values()) {
-//                    allCFDITags.add(tagCDFI.getArrayTagsCFDI());
-//                }
-//
-//                for (String[] array : allCFDITags) {
-//                    String tagName = "cfdi:" + capitalize(TagsCFDI_32.values()[allCFDITags.indexOf(array)].toString().toLowerCase());
-//
-//                    NodeList nList = xmlDoc.getElementsByTagName(tagName);
-//                    getElementAndAttributes(nList, array, cfdi);
-//                }
-                
-                String versionCFDI = getVersionCFDI(xmlDoc);
-                
-                if (versionCFDI.equals("3.2")) {
-                    getCFDITags32(xmlDoc, cfdi);
-                }else {
-                    getCFDITags33(xmlDoc, cfdi);
-                }
-                
-                filesCFDI.add(cfdi);
-            }
-
-        }
-
-        return filesCFDI;
+        return Arrays.stream(Objects.requireNonNull(directory.listFiles()))
+                .filter(file -> {
+                    String extension = FilenameUtils.getExtension(file.getPath());
+                    return !extension.equalsIgnoreCase("zip") && !extension.equalsIgnoreCase("xlsx");
+                })
+                .map(FacturasXMLtoXLSX::processFile)
+                .collect(Collectors.toList());
     }
 
-    private static Document getDocument(String docString) {
-        try {
-            xmlFile = new File(docString);
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
+    private static  List<CFDI> lstCFDIFilter(List<CFDI> filesCFDI, String filtroMetodoPago, String filtroUsoCFDI) {
+        return filesCFDI.stream()
+                .filter(cfdi -> {
+                    boolean metodoPagoValido = StringUtils.isEmpty(filtroMetodoPago) ||
+                            Objects.equals(cfdi.getMetodoDePago(), filtroMetodoPago);
 
+                    boolean usoCFDIValido = StringUtils.isEmpty(filtroUsoCFDI) ||
+                            Objects.equals(cfdi.getUsoCFDI(), filtroUsoCFDI);
+
+                    return metodoPagoValido && usoCFDIValido;
+                })
+                .collect(Collectors.toList());
+    }
+
+    private static CFDI processFile(File xmlFile) {
+        CFDI cfdi = new CFDI();
+
+        Document xmlDocument = getDocument(xmlFile);
+        xmlDocument.getDocumentElement().normalize();
+
+        //Imprimir y conocer todos los nodos del xml
+        //getNodesXML(xmlDocument);
+
+        // Asignamos el nombre del archivo
+        cfdi.setNombreArchivo(xmlFile.getName());
+
+        // Llamamos al método que recorre el XML usando XmlNode
+        exploreNodes(xmlDocument.getDocumentElement(), cfdi);
+
+
+        return cfdi;
+    }
+
+    private static Document getDocument(File xmlFile) {
+        try {
+            DocumentBuilder builder = FACTORY.newDocumentBuilder();
             return builder.parse(xmlFile);
-
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
+        } catch (ParserConfigurationException | IOException | org.xml.sax.SAXException e) {
+            LOGGER.log(Level.SEVERE, "Error al procesar el archivo XML", e);
+            return null;
         }
-
-        return null;
     }
-    
-    private static String getVersionCFDI(Document xmlDoc) {
-        NodeList nList = xmlDoc.getElementsByTagName(COMPROBANTE);
-        String version = "";
-           try {
-            for (int temp = 0; temp < nList.getLength(); temp++) {
-                Node nNode = nList.item(temp);
 
-                //System.out.println("\nCurrent Element: " + nNode.getNodeName());
-                if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-                    Element elementName = (Element) nNode;
-                    version = (elementName.getAttribute("version") == null ? elementName.getAttribute("Version") : elementName.getAttribute("version"));
+    //##########################################
+
+    private static void getNodesXML(Document xmlDoc) {
+        xmlDoc.getDocumentElement().normalize();
+        Element root = xmlDoc.getDocumentElement();
+        System.out.println("🌳 Nodo raíz: " + root.getNodeName());
+        // 🔹 Verificar y mostrar atributos del nodo raíz
+        printAttributes22(root, 1);
+
+        // 4️⃣ Llamar a la función para recorrer hijos
+        exploreNodes22(root, 1);
+
+    }
+
+    // Método para recorrer todos los nodos
+    private static void exploreNodes22(Node node, int depth) {
+        NodeList nodeList = node.getChildNodes();
+
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            Node currentNode = nodeList.item(i);
+
+            if (currentNode.getNodeType() == Node.ELEMENT_NODE) {
+                Element element = (Element) currentNode;
+
+                // Obtener el enum correspondiente
+                XmlNode xmlNode = XmlNode.fromNodeName(element.getNodeName());
+                if (xmlNode != null) {
+                    System.out.println(" ".repeat(depth * 2) + "📌 Nodo: " + xmlNode.getNodeName());
+                } else {
+                    System.out.println(" ".repeat(depth * 2) + "📌 Nodo desconocido: " + element.getNodeName());
                 }
+
+                // Mostrar atributos del nodo
+                printAttributes22(element, depth + 1);
+
+                // Mostrar contenido de texto si lo tiene
+                if (!element.getTextContent().trim().isEmpty()) {
+                    System.out.println(" ".repeat((depth + 1) * 2) + "📄 Contenido: " + element.getTextContent().trim());
+                }
+
+                // Recursión para recorrer hijos
+                exploreNodes22(element, depth + 1);
             }
-
-        } catch (Exception e) {
-        }
-           return version;
-    }
-
-    private static void getCFDITags32(Document xmlDoc, CFDI cfdi) {
-        List<String[]> allCFDITags = new ArrayList<>();
-        for (TagsCFDI_32 tagCDFI : TagsCFDI_32.values()) {
-            allCFDITags.add(tagCDFI.getArrayTagsCFDI());
-        }
-
-        for (String[] array : allCFDITags) {
-            String tagName = "cfdi:" + capitalize(TagsCFDI_32.values()[allCFDITags.indexOf(array)].toString().toLowerCase());
-
-            NodeList nList = xmlDoc.getElementsByTagName(tagName);
-            getElementAndAttributes(nList, array, cfdi);
         }
     }
 
-    private static void getCFDITags33(Document xmlDoc, CFDI cfdi) {
-        List<String[]> allCFDITags = new ArrayList<>();
-        for (TagsCFDI_33 tagCDFI : TagsCFDI_33.values()) {
-            allCFDITags.add(tagCDFI.getArrayTagsCFDI());
-        }
-
-        for (String[] array : allCFDITags) {
-            String tagName = "cfdi:" + capitalize(TagsCFDI_33.values()[allCFDITags.indexOf(array)].toString().toLowerCase());
-
-            NodeList nList = xmlDoc.getElementsByTagName(tagName);
-            getElementAndAttributes(nList, array, cfdi);
+    // Método para imprimir atributos de un nodo
+    private static void printAttributes22(Element element, int depth) {
+        NamedNodeMap attributes = element.getAttributes();
+        for (int j = 0; j < attributes.getLength(); j++) {
+            Node attr = attributes.item(j);
+            System.out.println(" ".repeat(depth * 2) + "🔹 Atributo: " + attr.getNodeName() + " = " + attr.getNodeValue());
         }
     }
+    //##########################################
 
-    private static void getElementAndAttributes(NodeList nList, String[] tags, CFDI cfdi) {
-        try {
-            for (int temp = 0; temp < nList.getLength(); temp++) {
-                Node nNode = nList.item(temp);
 
-                //System.out.println("\nCurrent Element: " + nNode.getNodeName());
-                if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-                    Element elementName = (Element) nNode;
-                    for (String tag : tags) {
-                        //System.out.format("    " + tag + ": %s \n", elementName.getAttribute(tag));
-                        createCFDI(nNode.getNodeName(), tag, elementName.getAttribute(tag), cfdi);                        
+    // Método que recorre el XML y extrae los datos dinámicamente usando XmlNode
+    private static void exploreNodes(Node node, CFDI cfdi) {
+        if (node.getNodeType() == Node.ELEMENT_NODE) {
+            Element element = (Element) node;
+            XmlNode xmlNode = XmlNode.fromNodeName(element.getNodeName());
+
+            if (xmlNode != null) {
+                for (String attr : xmlNode.getAttributes()) {
+                    String value = element.getAttribute(attr);
+                    if (!value.isEmpty()) {
+                        mapToCFDI(cfdi, xmlNode, attr, value);
                     }
                 }
             }
+        }
 
-        } catch (Exception e) {
+        NodeList nodeList = node.getChildNodes();
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            exploreNodes(nodeList.item(i), cfdi);
         }
     }
 
-    private static String capitalize(final String line) {
-        return Character.toUpperCase(line.charAt(0)) + line.substring(1);
+    // Método para mapear valores automáticamente en la clase CFDI
+    private static void mapToCFDI(CFDI cfdi, XmlNode node, String attr, String value) {
+        switch (node) {
+            case CFDI_COMPROBANTE:
+                switch (attr) {
+                    case "Fecha": cfdi.setFecha(value); break;
+                    case "LugarExpedicion": cfdi.setLugarExpedicion(value); break;
+                    case "Moneda": cfdi.setMoneda(value); break;
+                    case "FormaPago": cfdi.setFormaDePago(value); break;
+                    case "MetodoPago": cfdi.setMetodoDePago(value); break;
+                    case "TipoDeComprobante": cfdi.setTipoDeComprobante(value); break;
+                    case "SubTotal": cfdi.setSubTotal(value); break;
+                    case "Total": cfdi.setTotal(value); break;
+                }
+                break;
+
+            case CFDI_EMISOR:
+                switch (attr) {
+                    case "Rfc": cfdi.setRfcEmisor(value); break;
+                    case "Nombre": cfdi.setNombreEmisor(value); break;
+                }
+                break;
+
+            case CFDI_RECEPTOR:
+                switch (attr) {
+                    case "Rfc": cfdi.setRfcReceptor(value); break;
+                    case "Nombre": cfdi.setNombreReceptor(value); break;
+                    case "UsoCFDI": cfdi.setUsoCFDI(value); break;
+                }
+                break;
+
+            case CFDI_TRASLADO:
+                // Guardamos los valores en el Map para procesarlos después
+                TRASLADADOS.put(attr, value);
+
+                // Si ya tenemos la información suficiente, procesamos los traslados
+                if (TRASLADADOS.containsKey("Impuesto") || TRASLADADOS.containsKey("impuesto")) {
+                    workWithTrasladados(cfdi);
+                    TRASLADADOS.clear(); // Limpiamos el mapa para el siguiente traslado
+                }
+                break;
+
+            case CFDI_IMPUESTOS:
+                if ("TotalImpuestosTrasladados".equals(attr)) {
+                    cfdi.setTotalImpuestoTrasladados(value);
+                }
+                break;
+        }
     }
 
-    private static void createCFDI(String nodeName, String tag, String value, CFDI cfdi) {
-        cfdi.setNombreArchivo(xmlFile.getName());
-
-        String[] parts = nodeName.split(":");
-        String node = parts[1];
-        //COMPROBANTE
-        if (tag.equals("fecha") || tag.equals("Fecha")) {
-            cfdi.setFecha(value);
-        } else if (tag.equals("LugarExpedicion")) {
-            cfdi.setLugarExpedicion(value);
-        } else if ((tag.equals("rfc") || tag.equals("Rfc")) && node.equals("Emisor")) {
-            cfdi.setRfcEmisor(value);
-        } else if ((tag.equals("nombre") || tag.equals("Nombre")) && node.equals("Emisor")) {
-            cfdi.setNombreEmisor(value);
-        } else if ((tag.equals("rfc") || tag.equals("Rfc")) && node.equals("Receptor")) {
-            cfdi.setRfcReceptor(value);
-        } else if ((tag.equals("nombre") || tag.equals("Nombre")) && node.equals("Receptor")) {
-            cfdi.setNombreReceptor(value);
-        } else if (tag.equals("Moneda")) {
-            cfdi.setMoneda(value);
-        } else if (tag.equals("formaDePago") || tag.equals("FormaPago")) {
-            cfdi.setFormaDePago(value);
-        } else if (tag.equals("metodoDePago") || tag.equals("MetodoPago")) {
-            cfdi.setMetodoDePago(value);
-        } else if (tag.equals("subTotal") || tag.equals("SubTotal")) {
-            cfdi.setSubTotal(value.equals("") ? "0" : value);
-        } else if (tag.equals("total") || tag.equals("Total")) {
-            cfdi.setTotal(value.equals("") ? "0" : value);
-        } else if (tag.equals("totalImpuestosTrasladados") || tag.equals("TotalImpuestosTrasladados")) {
-            cfdi.setTotalImpuestoTrasladados(value.equals("") ? "0" : value);
-        } else if (node.equals("Traslado")) {
-            TRASLADADOS.put(tag, value);
-            if (tag.equals("importe") || tag.equals("Importe")) {
-                workWithTrasladados(cfdi);
-            }
+    public static String determinarTipoCFDI(String  tipoDeComprobante) {
+        if (Objects.isNull(tipoDeComprobante)) {
+            return "Desconocido"; // Manejo de casos nulos
         }
 
+        switch (tipoDeComprobante) {
+            case "I":
+                return "Ingreso";   //(Factura de venta)
+            case "E":
+                return "Egreso";    //(Nota de crédito, devolución)
+            case "T":
+                return "Traslado";  //(Transporte de mercancías)
+            case "N":
+                return "Nómina";    //(Pago de sueldos)
+            case "P":
+                return "Pago";      //(Complemento de pago)
+            default:
+                return "Tipo de CFDI desconocido";
+        }
     }
 
-    //private static void workWithTrasladados(Map<String, String> mapTrasladados, CFDI cfdi) {
     private static void workWithTrasladados(CFDI cfdi) {
-        String impuesto = (TRASLADADOS.get("impuesto") == null ? TRASLADADOS.get("Impuesto") : TRASLADADOS.get("impuesto"));
-        String tasa = (TRASLADADOS.get("tasa") == null ? TRASLADADOS.get("TasaOCuota") : TRASLADADOS.get("tasa"));
-        String importe = (TRASLADADOS.get("importe") == null ? TRASLADADOS.get("Importe") : TRASLADADOS.get("importe"));
-        if (impuesto.equals("IVA") || impuesto.equals("002")) {
-            cfdi.setTrasladoIVA(importe.equals("") ? "0" : importe);
+        String impuesto = Optional.ofNullable(TRASLADADOS.get("impuesto")).orElse(TRASLADADOS.get("Impuesto"));
+        String tasa = Optional.ofNullable(TRASLADADOS.get("tasa")).orElse(TRASLADADOS.get("TasaOCuota"));
+        String importe = Optional.ofNullable(TRASLADADOS.get("importe")).orElse(TRASLADADOS.get("Importe"));
+
+        if (importe == null) {
+            importe = ZERO; // Asignamos un valor predeterminado
+        }
+
+        if (impuesto != null && (impuesto.equals("IVA") || impuesto.equals("002"))) {
+            cfdi.setTrasladoIVA(importe.isEmpty() ? ZERO : importe);
             cfdi.setTasaIVA(tasa);
-            //createFormulasImpuestos(cfdi);
         } else {
-            cfdi.setTrasladoIEPS(importe.equals("") ? "0" : importe);
+            cfdi.setTrasladoIEPS(importe.isEmpty() ? ZERO : importe);
             cfdi.setTasaIEPS(tasa);
         }
+
         TRASLADADOS.clear();
     }
-    
-    private static void createFormulasImpuestos(CFDI cfdi) {
-        Double base = Double.parseDouble(cfdi.getTrasladoIVA()) / 0.16;
-        Double iva = base * 0.16;
-        Double total = base + iva;
-        
-        cfdi.setBase(base);
-        cfdi.setIva(iva);
-        cfdi.setTotalImp(total);
+
+    private static void createXLSX(List<CFDI> listAllCFDI) {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet pagina1 = workbook.createSheet(LABEL);
+            Sheet pagina2 = workbook.createSheet(PUE.getClave());    //FACTURAS RECIBIDAS TIPO INGRESO
+            Sheet pagina3 = workbook.createSheet(PPD.getClave());    //FACTURAS RECIBIDAS TIPO PAGO
+
+            createHeaderRow(pagina1, workbook);
+            fillDataRows(pagina1, listAllCFDI, workbook);
+            createTotalRow(pagina1, listAllCFDI.size(), workbook);
+
+            List<CFDI> lstCFDITipoIngreso = lstCFDIFilter(listAllCFDI, PUE.getClave(), G03.getClave());
+            createHeaderRow(pagina2, workbook);
+            fillDataRows(pagina2, lstCFDITipoIngreso, workbook);
+            createTotalRow(pagina2, lstCFDITipoIngreso.size(), workbook);
+
+            List<CFDI> lstCFDITipoPago = lstCFDIFilter(listAllCFDI, PPD.getClave(), G03.getClave());
+            createHeaderRow(pagina3, workbook);
+            fillDataRows(pagina3, lstCFDITipoPago, workbook);
+            createTotalRow(pagina3, lstCFDITipoPago.size(), workbook);
+
+            guardarArchivoXLSX(workbook);
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "Error al crear el archivo XLSX", e);
+        }
     }
 
-    private static String objectToJson(Object object) {
-        //Gson gson = new Gson();
-        //Convert object to JSON string and pretty print
-        Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        //Convert object to JSON string
-        String json = gson.toJson(object);
-        System.out.println("json = " + json);
-
-        return json;
+    private static void createHeaderRow(Sheet pagina, Workbook workbook) {
+        Row headerRow = pagina.createRow(0);
+        CellStyle headerStyle = createHeaderStyle(workbook);
+        for (int i = 0; i < COLUMNS_HEADERS.length; i++) {
+            Cell celda = headerRow.createCell(i);
+            celda.setCellStyle(headerStyle);
+            celda.setCellValue(COLUMNS_HEADERS[i]);
+            // Aplicar estilo especial para columnas específicas
+            if (SPECIAL_COLUMNS.contains(COLUMNS_HEADERS[i])) {
+                celda.setCellStyle(createBoldItalicStyle(workbook));
+            }
+        }
     }
 
-    private static void createXLSX(List<CFDI> listCFDI) {
+    private static void fillDataRows(Sheet pagina, List<CFDI> listCFDI, Workbook workbook) {
+        int i = 0;
+        for (CFDI cfdi : listCFDI) {
+            Row dataRow = pagina.createRow(i + 1);
+            dataRow.createCell(0).setCellValue(cfdi.getNombreArchivo());
+            dataRow.createCell(1).setCellValue(cfdi.getMetodoDePago());
+            dataRow.createCell(2).setCellValue(cfdi.getUsoCFDI());
+            dataRow.createCell(3).setCellValue(determinarTipoCFDI(cfdi.getTipoDeComprobante()));
+            dataRow.createCell(4).setCellValue(cfdi.getRfcEmisor());
+            dataRow.createCell(5).setCellValue(cfdi.getNombreEmisor());
+            setValueCell(dataRow, 6, setDecimal(cfdi.getSubTotal()), createCurrencyItalicStyle(workbook));
+            setValueCell(dataRow, 7, setDecimal(Objects.isNull(cfdi.getTotalImpuestoTrasladados()) ? ZERO : cfdi.getTotalImpuestoTrasladados()), createCurrencyStyle(workbook));
+            setValueCell(dataRow, 8, setDecimal(Objects.isNull(cfdi.getTotal()) ? ZERO : cfdi.getTotal()), createCurrencyStyle(workbook));
+            setValueCell(dataRow, 9, Objects.isNull(cfdi.getTrasladoIVA()) ? 0 : setDecimal(cfdi.getTrasladoIVA()), createCurrencyStyle(workbook));
+            //setValueCell(dataRow, 10, Objects.isNull(cfdi.getTrasladoIEPS()) ? 0 : setDecimal(cfdi.getTrasladoIEPS()), createCurrencyStyle(workbook));
+            setFormulaCells(dataRow, i, workbook);
+            i++;
+        }
+    }
 
-        // Creamos el libro de trabajo de Excel formato OOXML
-        Workbook workbook = new XSSFWorkbook();
+    private static void setValueCell(Row row, int cellIndex, Double value, CellStyle style) {
+        Cell cell = row.createCell(cellIndex);
+        cell.setCellValue(value);
+        cell.setCellStyle(style); // Aplicar formato de moneda
 
-        // La hoja donde pondremos los datos
-        Sheet pagina = workbook.createSheet(label);
+    }
 
-        // Creamos el estilo para las celdas del encabezado
+    private static void setFormulaCell(Row row, int cellIndex, String formula, CellStyle style) {
+        Cell cell = row.createCell(cellIndex);
+        cell.setCellFormula(formula);
+        cell.setCellStyle(style);
+    }
+
+    private static void setFormulaCells(Row dataRow, int rowIndex, Workbook workbook) {
+        setFormulaCell(dataRow, 10, "I" + (rowIndex + 2) + "/0.16", createCurrencyItalicStyle(workbook));
+        setFormulaCell(dataRow, 11, "K" + (rowIndex + 2) + "*0.16", createCurrencyItalicStyle(workbook));
+        setFormulaCell(dataRow, 12, "SUM(K" + (rowIndex + 2) + ":L" + (rowIndex + 2) + ")", createCurrencyStyle(workbook));
+    }
+
+    private static void createTotalRow(Sheet pagina, int rowCount, Workbook workbook) {
+        Row totalRow = pagina.createRow(rowCount + 1);
+        setTotalFormulaCells(totalRow, rowCount, workbook);
+    }
+
+    private static void setTotalFormulaCells(Row totalRow, int rowCount, Workbook workbook) {
+        setFormulaCell(totalRow, 6, "SUM(G2:G" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook));
+        setFormulaCell(totalRow, 7, "SUM(H2:H" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
+        setFormulaCell(totalRow, 8, "SUM(I2:I" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
+        setFormulaCell(totalRow, 9, "SUM(J2:J" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
+        setFormulaCell(totalRow, 10, "SUM(K2:K" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook));
+        setFormulaCell(totalRow, 11, "SUM(L2:L" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook));
+        setFormulaCell(totalRow, 12, "SUM(M2:M" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
+    }
+
+    private static CellStyle createHeaderStyle(Workbook workbook) {
         CellStyle headerStyle = workbook.createCellStyle();
         Font fontBold = workbook.createFont();
         fontBold.setBold(true);
         headerStyle.setFont(fontBold);
-        
-        // Creamos el estilo para las celdas de tipo currency y cursiva
-        CellStyle currencyCursiveStyle = workbook.createCellStyle();
-        currencyCursiveStyle.setDataFormat((short)8);
-        Font fontItalic = workbook.createFont();
-        fontItalic.setItalic(true);
-        fontItalic.setColor(HSSFColor.HSSFColorPredefined.LIGHT_BLUE.getIndex());
-        currencyCursiveStyle.setFont(fontItalic);
-        
-        // Creamos el estilo para las celdas de tipo currency y cursiva
-        CellStyle boldCursiveStyle = workbook.createCellStyle();
-        Font fontBoldCursive = workbook.createFont();
-        fontBoldCursive.setBold(true);
-        fontBoldCursive.setItalic(true);
-        fontBoldCursive.setColor(HSSFColor.HSSFColorPredefined.LIGHT_BLUE.getIndex());
-        boldCursiveStyle.setFont(fontBoldCursive);
-        
-        // Creamos el estilo para las celdas de tipo currency y negrita
-        CellStyle currencyBoldStyle = workbook.createCellStyle();
-        currencyBoldStyle.setDataFormat((short)8);
-        currencyBoldStyle.setFont(fontBold);
-        
-        // Creamos el estilo para las celdas de tipo currency
-        CellStyle currencyStyle = workbook.createCellStyle();
-        currencyStyle.setDataFormat((short)8);
-
-        // Creamos una fila en la hoja en la posicion 0
-        Row headerRow = pagina.createRow(0);
-
-        // Creamos el encabezado
-        for (int i = 0; i < COLUMNS_HEADERS.length; i++) {
-            // Creamos una celda en esa fila, en la posicion 
-            // indicada por el contador del ciclo
-            Cell celda = headerRow.createCell(i);
-
-            // Indicamos el estilo que deseamos 
-            // usar en la celda, en este caso el unico 
-            // que hemos creado
-            celda.setCellStyle(headerStyle);
-            celda.setCellValue(COLUMNS_HEADERS[i]);
-            if (COLUMNS_HEADERS[i].equals("BASE")) {
-                celda.setCellStyle(boldCursiveStyle);
-            }
-        }
-
-        int i = 0;
-        for (CFDI cfdi : listCFDI) {
-            Row dataRow = pagina.createRow(i + 1);
-            
-//            //Se convierte el jason a map para recorrerlo
-//            Gson gson = new Gson();
-//            Map<String, String> map = setCellValues(gson.fromJson(objectToJson(cfdi), new TypeToken<Map<String, String>>() {}.getType()));
-//            // Y colocamos los datos en esa fila
-//            int count = 0;
-//            for (Map.Entry<String, String> entry : map.entrySet()) {
-//                Cell celda = dataRow.createCell(count);
-//                celda.setCellValue(entry.getValue());
-//                count++;
-//            }
-            dataRow.createCell(0).setCellValue(cfdi.getNombreArchivo());
-            //System.out.println("nombre = " + cfdi.getNombreArchivo());
-            dataRow.createCell(1).setCellValue(cfdi.getRfcEmisor());
-            dataRow.createCell(2).setCellValue(cfdi.getNombreEmisor());
-            dataRow.createCell(3).setCellValue(setDecimal(cfdi.getSubTotal()));
-            //System.out.println("val1 = " + cfdi.getSubTotal());
-            dataRow.createCell(4).setCellValue(setDecimal(cfdi.getTotalImpuestoTrasladados() == null ? "0" : cfdi.getTotalImpuestoTrasladados()));
-            //System.out.println("val2 = " + cfdi.getTotalImpuestoTrasladados());
-            dataRow.createCell(5).setCellValue(setDecimal(cfdi.getTotal() == null ? "0" : cfdi.getTotal()));
-            //System.out.println("val3 = " + cfdi.getTotal());
-            dataRow.createCell(6).setCellValue(cfdi.getTrasladoIVA() == null ? 0 : setDecimal(cfdi.getTrasladoIVA()));
-            dataRow.createCell(7).setCellValue(cfdi.getTrasladoIEPS() == null ? 0 : setDecimal(cfdi.getTrasladoIEPS()));
-            
-            Cell cellBase =dataRow.createCell(8);
-            //cellBase.setCellValue(cfdi.getBase() == null ? 0 : cfdi.getBase());
-            cellBase.setCellStyle(currencyCursiveStyle);
-            cellBase.setCellFormula("G"+(i+2)+"/0.16");
-            Cell cellIva = dataRow.createCell(9);
-            //cellIva.setCellValue(cfdi.getIva() == null ? 0 : cfdi.getIva());
-            cellIva.setCellStyle(currencyStyle);
-            cellIva.setCellFormula("I"+(i+2)+"*0.16");
-            Cell cellTotal = dataRow.createCell(10);
-            //cellTotal.setCellValue(cfdi.getTotalImp() == null ? 0 : cfdi.getTotalImp());
-            cellTotal.setCellStyle(currencyStyle);
-            cellTotal.setCellFormula("SUM(I"+(i+2)+":J"+(i+2)+")");
-            
-            i++;
-            
-        }
-        
-        // Creamos una fila suma total en la hoja
-        Row totalRow = pagina.createRow(listCFDI.size() + 1);
-        Cell cellTotalBase = totalRow.createCell(8);
-        cellTotalBase.setCellFormula("SUM(I2:I"+(listCFDI.size()+1)+")");
-        cellTotalBase.setCellStyle(currencyBoldStyle);
-        
-        Cell cellTotalIva = totalRow.createCell(9);
-        cellTotalIva.setCellFormula("SUM(J2:J"+(listCFDI.size()+1)+")");
-        cellTotalIva.setCellStyle(currencyBoldStyle);
-        
-        Cell cellTotal = totalRow.createCell(10);
-        cellTotal.setCellFormula("SUM(K2:K"+(listCFDI.size()+1)+")");
-        cellTotal.setCellStyle(currencyBoldStyle);
-        
-
-        guardarArchivoXLSX(workbook);
+        return headerStyle;
     }
 
-    private static Double setDecimal(String value) {        
+    private static CellStyle createBoldItalicStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setItalic(true);
+        font.setColor(IndexedColors.LIGHT_BLUE.getIndex());
+        style.setFont(font);
+        return style;
+    }
+
+    private static CellStyle createCurrencyBoldItalicStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setDataFormat((short) 8);
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setItalic(true);
+        font.setColor(IndexedColors.LIGHT_BLUE.getIndex());
+        style.setFont(font);
+        return style;
+    }
+
+    private static CellStyle createCurrencyItalicStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setDataFormat((short) 8);
+        Font font = workbook.createFont();
+        font.setItalic(true);
+        font.setColor(IndexedColors.LIGHT_BLUE.getIndex());
+        style.setFont(font);
+        return style;
+    }
+
+    private static CellStyle createCurrencyStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setDataFormat((short) 8);
+        return style;
+    }
+
+    private static CellStyle createCurrencyBoldStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setDataFormat((short) 8);
+        Font font = workbook.createFont();
+        font.setBold(true);
+        style.setFont(font);
+        return style;
+    }
+
+    private static Double setDecimal(String value) {
         return new BigDecimal(value).doubleValue();
-    }
-   
-    private static Map<String, String> setCellValues(Map<String, String> map) {
-
-        Map<String, String> mapCellValues = new HashMap<>();
-        String[] cellValues = {"nombreArchivo", "rfcEmisor", "nombreEmisor",
-            "subTotal"};
-//            "totalImpuestoTrasladados", "total", "trasladoIVA", "trasladoIEPS"};
-
-        for (String key : cellValues) {
-            for (Map.Entry<String, String> entry : map.entrySet()) {
-                if (key.equals(entry.getKey())) {
-                    mapCellValues.put(entry.getKey(), entry.getValue());
-                    break;
-                }
-            }
-            //System.out.format("Atributo : [ %s ], Requerido : [ %s ] \n", entry.getKey(), entry.getValue());
-        }
-        System.out.println("mapCellValues = " + mapCellValues.toString());
-        return mapCellValues;
     }
 
     private static void guardarArchivoXLSX(Workbook workbook) {
-        // Ahora guardaremos el archivo
-        try {
-            File xlsxFile = new File(Constantes.DIRECTORY + "\\" + label + ".xlsx");
-
-            // Creamos el flujo de salida de datos,
-            // apuntando al archivo donde queremos 
-            // almacenar el libro de Excel
-            FileOutputStream salida = new FileOutputStream(xlsxFile);
-
-            // Almacenamos el libro de 
-            // Excel via ese 
-            // flujo de datos
+        try (FileOutputStream salida = new FileOutputStream(DIRECTORY + "\\" + LABEL + ".xlsx")) {
             workbook.write(salida);
-
-            // Cerramos el libro para concluir operaciones
-            workbook.close();
-
-            LOGGER.log(Level.INFO, "Archivo creado exitosamente en {0}", xlsxFile.getAbsolutePath());
-
+            LOGGER.log(Level.INFO, "Archivo creado exitosamente en {0}", DIRECTORY + "\\" + LABEL + ".xlsx");
         } catch (FileNotFoundException ex) {
-            LOGGER.log(Level.SEVERE, "Archivo no localizable en sistema de archivos");
+            LOGGER.log(Level.SEVERE, "Archivo no localizable en sistema de archivos", ex);
         } catch (IOException ex) {
-            LOGGER.log(Level.SEVERE, "Error de entrada/salida");
+            LOGGER.log(Level.SEVERE, "Error de entrada/salida", ex);
         }
     }
 
