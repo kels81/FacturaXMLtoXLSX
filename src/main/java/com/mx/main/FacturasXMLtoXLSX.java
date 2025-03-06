@@ -39,7 +39,7 @@ public class FacturasXMLtoXLSX {
     private static final DocumentBuilderFactory FACTORY = DocumentBuilderFactory.newInstance();
 
     public static void main(String[] args) {
-        int noMes = 1;
+        int noMes = 2;
         DIRECTORY = Constantes.getDirectoryForMonth(noMes);
         LABEL = Constantes.getMonthName(noMes).toUpperCase();
 
@@ -378,7 +378,7 @@ public class FacturasXMLtoXLSX {
     }
 
     private static void setFormulaCells(Row dataRow, int rowIndex, Workbook workbook) {
-        setFormulaCell(dataRow, 10, "I" + (rowIndex + 2) + "/0.16", createCurrencyItalicStyle(workbook));
+        setFormulaCell(dataRow, 10, "J" + (rowIndex + 2) + "/0.16", createCurrencyItalicStyle(workbook));
         setFormulaCell(dataRow, 11, "K" + (rowIndex + 2) + "*0.16", createCurrencyItalicStyle(workbook));
         setFormulaCell(dataRow, 12, "SUM(K" + (rowIndex + 2) + ":L" + (rowIndex + 2) + ")", createCurrencyStyle(workbook));
     }
