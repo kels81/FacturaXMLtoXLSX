@@ -2,6 +2,7 @@ package com.mx.main;
 
 import com.mx.bean.CFDI;
 import com.mx.utils.Constantes;
+import com.mx.utils.FormaPago;
 import com.mx.utils.XmlNode;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -34,14 +35,14 @@ public class FacturasXMLtoXLSX {
     private static final Map<String, String> TRASLADADOS = new HashMap<>();
     private static String LABEL;
     private static String DIRECTORY;
-    private static final String[] COLUMNS_HEADERS = {"XML", "Metodo\nPago", "Uso\nCFDI", "Tipo\nComprobante", "RFC\nEmisor", "Nombre\nEmisor", "SUB TOTAL", "Total\nImpuesto Trasladado", "Total", "Traslado\nIVA: 16", "BASE", "IVA", "TOTAL"};
+    private static final String[] COLUMNS_HEADERS = {"XML", "Metodo\nPago", "Uso\nCFDI", "Forma\nPago", "Tipo\nComprobante", "RFC\nEmisor", "Nombre\nEmisor", "SUB TOTAL", "Total\nImpuesto Trasladado", "Total", "Traslado\nIVA: 16", "BASE", "IVA", "TOTAL"};
 
     private static final DocumentBuilderFactory FACTORY = DocumentBuilderFactory.newInstance();
 
     public static void main(String[] args) {
         int noMes = 2;
         DIRECTORY = Constantes.getDirectoryForMonth(noMes);
-        LABEL = Constantes.getMonthName(noMes).toUpperCase();
+        LABEL = Constantes.getMonthName(noMes).toUpperCase().concat("_21");
 
         List<CFDI> filesCFDI = cfdiFile(new File(DIRECTORY));
 
@@ -347,17 +348,25 @@ public class FacturasXMLtoXLSX {
     private static void fillDataRows(Sheet pagina, List<CFDI> listCFDI, Workbook workbook) {
         int i = 0;
         for (CFDI cfdi : listCFDI) {
+            String formaPagoClave = cfdi.getFormaDePago();
+            FormaPago formaPagoEnum = FormaPago.fromClave(formaPagoClave);
+
+            String formaPagoDescripcion = (formaPagoEnum != null) ? formaPagoEnum.getDescripcion() : "Descripción no encontrada";
+            String formaPagoTexto = (formaPagoClave != null ? formaPagoClave : "N/A") + " - " + formaPagoDescripcion;
+
             Row dataRow = pagina.createRow(i + 1);
             dataRow.createCell(0).setCellValue(cfdi.getNombreArchivo());
             dataRow.createCell(1).setCellValue(cfdi.getMetodoDePago());
             dataRow.createCell(2).setCellValue(cfdi.getUsoCFDI());
-            dataRow.createCell(3).setCellValue(determinarTipoCFDI(cfdi.getTipoDeComprobante()));
-            dataRow.createCell(4).setCellValue(cfdi.getRfcEmisor());
-            dataRow.createCell(5).setCellValue(cfdi.getNombreEmisor());
-            setValueCell(dataRow, 6, setDecimal(cfdi.getSubTotal()), createCurrencyItalicStyle(workbook));
-            setValueCell(dataRow, 7, setDecimal(Objects.isNull(cfdi.getTotalImpuestoTrasladados()) ? ZERO : cfdi.getTotalImpuestoTrasladados()), createCurrencyStyle(workbook));
-            setValueCell(dataRow, 8, setDecimal(Objects.isNull(cfdi.getTotal()) ? ZERO : cfdi.getTotal()), createCurrencyStyle(workbook));
-            setValueCell(dataRow, 9, Objects.isNull(cfdi.getTrasladoIVA()) ? 0 : setDecimal(cfdi.getTrasladoIVA()), createCurrencyStyle(workbook));
+            dataRow.createCell(3).setCellValue(formaPagoTexto);
+
+            dataRow.createCell(4).setCellValue(determinarTipoCFDI(cfdi.getTipoDeComprobante()));
+            dataRow.createCell(5).setCellValue(cfdi.getRfcEmisor());
+            dataRow.createCell(6).setCellValue(cfdi.getNombreEmisor());
+            setValueCell(dataRow, 7, setDecimal(cfdi.getSubTotal()), createCurrencyItalicStyle(workbook));
+            setValueCell(dataRow, 8, setDecimal(Objects.isNull(cfdi.getTotalImpuestoTrasladados()) ? ZERO : cfdi.getTotalImpuestoTrasladados()), createCurrencyStyle(workbook));
+            setValueCell(dataRow, 9, setDecimal(Objects.isNull(cfdi.getTotal()) ? ZERO : cfdi.getTotal()), createCurrencyStyle(workbook));
+            setValueCell(dataRow, 10, Objects.isNull(cfdi.getTrasladoIVA()) ? 0 : setDecimal(cfdi.getTrasladoIVA()), createCurrencyStyle(workbook));
             //setValueCell(dataRow, 10, Objects.isNull(cfdi.getTrasladoIEPS()) ? 0 : setDecimal(cfdi.getTrasladoIEPS()), createCurrencyStyle(workbook));
             setFormulaCells(dataRow, i, workbook);
             i++;
@@ -378,9 +387,9 @@ public class FacturasXMLtoXLSX {
     }
 
     private static void setFormulaCells(Row dataRow, int rowIndex, Workbook workbook) {
-        setFormulaCell(dataRow, 10, "J" + (rowIndex + 2) + "/0.16", createCurrencyItalicStyle(workbook));
-        setFormulaCell(dataRow, 11, "K" + (rowIndex + 2) + "*0.16", createCurrencyItalicStyle(workbook));
-        setFormulaCell(dataRow, 12, "SUM(K" + (rowIndex + 2) + ":L" + (rowIndex + 2) + ")", createCurrencyStyle(workbook));
+        setFormulaCell(dataRow, 11, "K" + (rowIndex + 2) + "/0.16", createCurrencyItalicStyle(workbook));
+        setFormulaCell(dataRow, 12, "L" + (rowIndex + 2) + "*0.16", createCurrencyItalicStyle(workbook));
+        setFormulaCell(dataRow, 13, "SUM(L" + (rowIndex + 2) + ":M" + (rowIndex + 2) + ")", createCurrencyStyle(workbook));
     }
 
     private static void createTotalRow(Sheet pagina, int rowCount, Workbook workbook) {
@@ -389,13 +398,13 @@ public class FacturasXMLtoXLSX {
     }
 
     private static void setTotalFormulaCells(Row totalRow, int rowCount, Workbook workbook) {
-        setFormulaCell(totalRow, 6, "SUM(G2:G" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook));
-        setFormulaCell(totalRow, 7, "SUM(H2:H" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
+        setFormulaCell(totalRow, 7, "SUM(H2:H" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook));
         setFormulaCell(totalRow, 8, "SUM(I2:I" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
         setFormulaCell(totalRow, 9, "SUM(J2:J" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
-        setFormulaCell(totalRow, 10, "SUM(K2:K" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook));
+        setFormulaCell(totalRow, 10, "SUM(K2:K" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
         setFormulaCell(totalRow, 11, "SUM(L2:L" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook));
-        setFormulaCell(totalRow, 12, "SUM(M2:M" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
+        setFormulaCell(totalRow, 12, "SUM(M2:M" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook));
+        setFormulaCell(totalRow, 13, "SUM(N2:N" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
     }
 
     private static CellStyle createHeaderStyle(Workbook workbook) {
