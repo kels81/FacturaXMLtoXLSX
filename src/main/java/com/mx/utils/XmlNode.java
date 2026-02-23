@@ -4,7 +4,7 @@ public enum XmlNode {
     CFDI_COMPROBANTE("cfdi:Comprobante", new String[]{
             "Certificado", "Exportacion", "Fecha", "Folio", "FormaPago",
             "LugarExpedicion", "MetodoPago", "Moneda", "NoCertificado",
-            "Sello", "SubTotal", "TipoDeComprobante", "Total", "Version",
+            "Sello", "SubTotal", "Descuento", "TipoDeComprobante", "Total", "Version",
             "xmlns:cfdi", "xmlns:xsi", "xsi:schemaLocation"
     }),
 

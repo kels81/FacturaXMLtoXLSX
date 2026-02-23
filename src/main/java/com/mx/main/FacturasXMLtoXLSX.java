@@ -35,14 +35,14 @@ public class FacturasXMLtoXLSX {
     private static final Map<String, String> TRASLADADOS = new HashMap<>();
     private static String LABEL;
     private static String DIRECTORY;
-    private static final String[] COLUMNS_HEADERS = {"XML", "Metodo\nPago", "Uso\nCFDI", "Forma\nPago", "Tipo\nComprobante", "RFC\nEmisor", "Nombre\nEmisor", "SUB TOTAL", "Total\nImpuesto Trasladado", "Total", "Traslado\nIVA: 16", "BASE", "IVA", "TOTAL"};
+    private static final String[] COLUMNS_HEADERS = {"XML", "Metodo\nPago", "Uso\nCFDI", "Forma\nPago", "Tipo\nComprobante", "Tipo\nFactor", "RFC\nEmisor", "Nombre\nEmisor", "SUB TOTAL", "Total\nImpuesto Trasladado", "Total", "Traslado\nIVA: 16", "Descuento", "Base IVA 0%", "BASE", "IVA", "TOTAL"};
 
     private static final DocumentBuilderFactory FACTORY = DocumentBuilderFactory.newInstance();
 
     public static void main(String[] args) {
-        int noMes = 2;
+        int noMes = 1;
         DIRECTORY = Constantes.getDirectoryForMonth(noMes);
-        LABEL = Constantes.getMonthName(noMes).toUpperCase().concat("_21");
+        LABEL = Constantes.getMonthName(noMes).toUpperCase();
 
         List<CFDI> filesCFDI = cfdiFile(new File(DIRECTORY));
 
@@ -62,6 +62,7 @@ public class FacturasXMLtoXLSX {
             System.out.println("Metodo Pago: " + cfdi.getMetodoDePago());
             System.out.println("Subtotal: " + cfdi.getSubTotal());
             System.out.println("Total: " + cfdi.getTotal());
+            System.out.println("Descuento: " + cfdi.getDescuento());
             System.out.println("Total Imp Trasladados: " + cfdi.getTotalImpuestoTrasladados());
             System.out.println("Traslado IVA: " + cfdi.getTrasladoIVA());
             System.out.println("Tasa IVA: " + cfdi.getTasaIVA());
@@ -69,12 +70,6 @@ public class FacturasXMLtoXLSX {
             System.out.println("Tasa IEPS: " + cfdi.getTasaIEPS());
             count++;
         }*/
-
-        /*createXLSX(filesCFDI
-                .stream()
-                //.filter(cfdi -> !cfdi.getTrasladoIVA().equals("0"))
-                .filter(cfdi -> Objects.nonNull(cfdi.getTrasladoIVA()) && Double.parseDouble(cfdi.getTrasladoIVA()) > 0)
-                .collect(Collectors.toList()));*/
 
         // Ordenar la lista por RFC del emisor
         filesCFDI.sort(Comparator.comparing(CFDI::getRfcEmisor));
@@ -205,6 +200,18 @@ public class FacturasXMLtoXLSX {
                         mapToCFDI(cfdi, xmlNode, attr, value);
                     }
                 }
+
+                if (xmlNode == XmlNode.CFDI_TRASLADO) {
+                    Node parent = node.getParentNode();
+                    Node grandParent = (parent != null) ? parent.getParentNode() : null;
+                    Node greatGrandParent = (grandParent != null) ? grandParent.getParentNode() : null;
+
+                    if (greatGrandParent != null && !"cfdi:Concepto".equals(greatGrandParent.getNodeName())) {
+                        workWithTrasladados(cfdi);
+                    } else {
+                        TRASLADADOS.clear();
+                    }
+                }
             }
         }
 
@@ -226,6 +233,7 @@ public class FacturasXMLtoXLSX {
                     case "MetodoPago": cfdi.setMetodoDePago(value); break;
                     case "TipoDeComprobante": cfdi.setTipoDeComprobante(value); break;
                     case "SubTotal": cfdi.setSubTotal(value); break;
+                    case "Descuento": cfdi.setDescuento(value); break;
                     case "Total": cfdi.setTotal(value); break;
                 }
                 break;
@@ -246,14 +254,7 @@ public class FacturasXMLtoXLSX {
                 break;
 
             case CFDI_TRASLADO:
-                // Guardamos los valores en el Map para procesarlos después
                 TRASLADADOS.put(attr, value);
-
-                // Si ya tenemos la información suficiente, procesamos los traslados
-                if (TRASLADADOS.containsKey("Impuesto") || TRASLADADOS.containsKey("impuesto")) {
-                    workWithTrasladados(cfdi);
-                    TRASLADADOS.clear(); // Limpiamos el mapa para el siguiente traslado
-                }
                 break;
 
             case CFDI_IMPUESTOS:
@@ -286,19 +287,27 @@ public class FacturasXMLtoXLSX {
     }
 
     private static void workWithTrasladados(CFDI cfdi) {
-        String impuesto = Optional.ofNullable(TRASLADADOS.get("impuesto")).orElse(TRASLADADOS.get("Impuesto"));
-        String tasa = Optional.ofNullable(TRASLADADOS.get("tasa")).orElse(TRASLADADOS.get("TasaOCuota"));
-        String importe = Optional.ofNullable(TRASLADADOS.get("importe")).orElse(TRASLADADOS.get("Importe"));
+        String impuesto = Optional.ofNullable(TRASLADADOS.get("Impuesto")).orElse(TRASLADADOS.get("impuesto"));
+        String tasa = Optional.ofNullable(TRASLADADOS.get("TasaOCuota")).orElse(TRASLADADOS.get("tasa"));
+        String importe = Optional.ofNullable(TRASLADADOS.get("Importe")).orElse(TRASLADADOS.get("importe"));
+        String base = Optional.ofNullable(TRASLADADOS.get("Base")).orElse(TRASLADADOS.get("base"));
+        String tipoFactor = Optional.ofNullable(TRASLADADOS.get("TipoFactor")).orElse(TRASLADADOS.get("tipofactor"));
 
-        if (importe == null) {
-            importe = ZERO; // Asignamos un valor predeterminado
-        }
+        if (importe == null || importe.isEmpty()) importe = ZERO;
+        if (base == null || base.isEmpty()) base = ZERO;
+        if (tipoFactor != null) cfdi.setTipoFactor(tipoFactor);
 
         if (impuesto != null && (impuesto.equals("IVA") || impuesto.equals("002"))) {
-            cfdi.setTrasladoIVA(importe.isEmpty() ? ZERO : importe);
-            cfdi.setTasaIVA(tasa);
+            if ("0.000000".equals(tasa)) {
+                double baseActual = Double.parseDouble(cfdi.getBaseIVA0() != null ? cfdi.getBaseIVA0() : "0");
+                double baseNueva = Double.parseDouble(base);
+                cfdi.setBaseIVA0(String.valueOf(baseActual + baseNueva));
+            } else {
+                cfdi.setTrasladoIVA(importe);
+                cfdi.setTasaIVA(tasa);
+            }
         } else {
-            cfdi.setTrasladoIEPS(importe.isEmpty() ? ZERO : importe);
+            cfdi.setTrasladoIEPS(importe);
             cfdi.setTasaIEPS(tasa);
         }
 
@@ -361,12 +370,15 @@ public class FacturasXMLtoXLSX {
             dataRow.createCell(3).setCellValue(formaPagoTexto);
 
             dataRow.createCell(4).setCellValue(determinarTipoCFDI(cfdi.getTipoDeComprobante()));
-            dataRow.createCell(5).setCellValue(cfdi.getRfcEmisor());
-            dataRow.createCell(6).setCellValue(cfdi.getNombreEmisor());
-            setValueCell(dataRow, 7, setDecimal(cfdi.getSubTotal()), createCurrencyItalicStyle(workbook));
-            setValueCell(dataRow, 8, setDecimal(Objects.isNull(cfdi.getTotalImpuestoTrasladados()) ? ZERO : cfdi.getTotalImpuestoTrasladados()), createCurrencyStyle(workbook));
-            setValueCell(dataRow, 9, setDecimal(Objects.isNull(cfdi.getTotal()) ? ZERO : cfdi.getTotal()), createCurrencyStyle(workbook));
-            setValueCell(dataRow, 10, Objects.isNull(cfdi.getTrasladoIVA()) ? 0 : setDecimal(cfdi.getTrasladoIVA()), createCurrencyStyle(workbook));
+            dataRow.createCell(5).setCellValue(cfdi.getTipoFactor() != null ? cfdi.getTipoFactor() : "N/A");
+            dataRow.createCell(6).setCellValue(cfdi.getRfcEmisor());
+            dataRow.createCell(7).setCellValue(cfdi.getNombreEmisor());
+            setValueCell(dataRow, 8, setDecimal(cfdi.getSubTotal()), createCurrencyItalicStyle(workbook));
+            setValueCell(dataRow, 9, setDecimal(Objects.isNull(cfdi.getTotalImpuestoTrasladados()) ? ZERO : cfdi.getTotalImpuestoTrasladados()), createCurrencyStyle(workbook));
+            setValueCell(dataRow, 10, setDecimal(Objects.isNull(cfdi.getTotal()) ? ZERO : cfdi.getTotal()), createCurrencyStyle(workbook));
+            setValueCell(dataRow, 11, Objects.isNull(cfdi.getTrasladoIVA()) ? 0 : setDecimal(cfdi.getTrasladoIVA()), createCurrencyStyle(workbook));
+            setValueCell(dataRow, 12, setDecimal(Objects.isNull(cfdi.getDescuento()) ? ZERO : cfdi.getDescuento()), createCurrencyStyle(workbook)); //Descuento
+            setValueCell(dataRow, 13, setDecimal(Objects.isNull(cfdi.getBaseIVA0()) ? ZERO : cfdi.getBaseIVA0()), createCurrencyStyle(workbook));   //IVA 0%
             //setValueCell(dataRow, 10, Objects.isNull(cfdi.getTrasladoIEPS()) ? 0 : setDecimal(cfdi.getTrasladoIEPS()), createCurrencyStyle(workbook));
             setFormulaCells(dataRow, i, workbook);
             i++;
@@ -387,9 +399,9 @@ public class FacturasXMLtoXLSX {
     }
 
     private static void setFormulaCells(Row dataRow, int rowIndex, Workbook workbook) {
-        setFormulaCell(dataRow, 11, "K" + (rowIndex + 2) + "/0.16", createCurrencyItalicStyle(workbook));
-        setFormulaCell(dataRow, 12, "L" + (rowIndex + 2) + "*0.16", createCurrencyItalicStyle(workbook));
-        setFormulaCell(dataRow, 13, "SUM(L" + (rowIndex + 2) + ":M" + (rowIndex + 2) + ")", createCurrencyStyle(workbook));
+        setFormulaCell(dataRow, 14, "L" + (rowIndex + 2) + "/0.16", createCurrencyItalicStyle(workbook));   //BASE 16%
+        setFormulaCell(dataRow, 15, "O" + (rowIndex + 2) + "*0.16", createCurrencyItalicStyle(workbook));   //IAV 16%
+        setFormulaCell(dataRow, 16, "SUM(N" + (rowIndex + 2) + ":P" + (rowIndex + 2) + ")", createCurrencyStyle(workbook)); //TOTAL
     }
 
     private static void createTotalRow(Sheet pagina, int rowCount, Workbook workbook) {
@@ -398,13 +410,15 @@ public class FacturasXMLtoXLSX {
     }
 
     private static void setTotalFormulaCells(Row totalRow, int rowCount, Workbook workbook) {
-        setFormulaCell(totalRow, 7, "SUM(H2:H" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook));
-        setFormulaCell(totalRow, 8, "SUM(I2:I" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
-        setFormulaCell(totalRow, 9, "SUM(J2:J" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
-        setFormulaCell(totalRow, 10, "SUM(K2:K" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
-        setFormulaCell(totalRow, 11, "SUM(L2:L" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook));
-        setFormulaCell(totalRow, 12, "SUM(M2:M" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook));
-        setFormulaCell(totalRow, 13, "SUM(N2:N" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));
+        setFormulaCell(totalRow, 8, "SUM(I2:I" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook));  // SUB TOTAL
+        setFormulaCell(totalRow, 9, "SUM(J2:J" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));        // Tot Imp. Trasladado
+        setFormulaCell(totalRow, 10, "SUM(K2:K" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));       // Total
+        setFormulaCell(totalRow, 11, "SUM(L2:L" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));       // Traslado IVA: 16
+        setFormulaCell(totalRow, 12, "SUM(M2:M" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));       // Descuento
+        setFormulaCell(totalRow, 13, "SUM(N2:N" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));       // BASE IVA 0%
+        setFormulaCell(totalRow, 14, "SUM(O2:O" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook)); // BASE (16%)
+        setFormulaCell(totalRow, 15, "SUM(P2:P" + (rowCount + 1) + ")", createCurrencyBoldItalicStyle(workbook)); // IVA
+        setFormulaCell(totalRow, 16, "SUM(Q2:Q" + (rowCount + 1) + ")", createCurrencyBoldStyle(workbook));       // TOTAL FINAL
     }
 
     private static CellStyle createHeaderStyle(Workbook workbook) {

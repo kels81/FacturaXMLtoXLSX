@@ -5,8 +5,6 @@
  */
 package com.mx.bean;
 
-import java.util.Map;
-
 /**
  *
  * @author Edrd
@@ -26,8 +24,11 @@ public class CFDI {
     private String metodoDePago;
     private String tipoDeComprobante;
     private String subTotal;
+    private String descuento;
     private String total;
     private String totalImpuestoTrasladados;
+    private String baseIVA0;
+    private String tipoFactor;
 
     private String trasladoIVA;
     private String tasaIVA;
@@ -38,10 +39,12 @@ public class CFDI {
     private Double base;
     private Double iva;
     private Double totalImp;
+
+
     
     public CFDI() { }
 
-    public CFDI(String nombreArchivo, String fecha, String lugarExpedicion, String rfcEmisor, String nombreEmisor, String rfcReceptor, String nombreReceptor, String moneda, String usoCFDI, String formaDePago, String tipoDeComprobante, String metodoDePago, String subTotal, String total) {
+    public CFDI(String nombreArchivo, String fecha, String lugarExpedicion, String rfcEmisor, String nombreEmisor, String rfcReceptor, String nombreReceptor, String moneda, String usoCFDI, String formaDePago, String tipoDeComprobante, String metodoDePago, String subTotal, String total, String descuento, String baseIVA0, String tipoFactor) {
         this.nombreArchivo = nombreArchivo;
         this.fecha = fecha;
         this.lugarExpedicion = lugarExpedicion;
@@ -56,6 +59,9 @@ public class CFDI {
         this.metodoDePago = metodoDePago;
         this.subTotal = subTotal;
         this.total = total;
+        this.descuento = descuento;
+        this.baseIVA0 = baseIVA0;
+        this.tipoFactor = tipoFactor;
     }
     
 
@@ -225,4 +231,27 @@ public class CFDI {
         this.totalImp = totalImp;
     }
 
+    public String getDescuento() {
+        return descuento;
+    }
+
+    public void setDescuento(String descuento) {
+        this.descuento = descuento;
+    }
+
+    public String getBaseIVA0() {
+        return baseIVA0;
+    }
+
+    public void setBaseIVA0(String baseIVA0) {
+        this.baseIVA0 = baseIVA0;
+    }
+
+    public String getTipoFactor() {
+        return tipoFactor;
+    }
+
+    public void setTipoFactor(String tipoFactor) {
+        this.tipoFactor = tipoFactor;
+    }
 }

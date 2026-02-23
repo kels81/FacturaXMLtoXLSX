@@ -7,7 +7,7 @@ import java.util.Map;
 public class Constantes {
 
     // Nombre de la carpeta raíz
-    private static final String ROOT_FOLDER = "Facturas 2025";
+    private static final String ROOT_FOLDER = "Facturas 2026";
 
     // Mapeo de meses para evitar el uso de un array con índices numéricos
     private static final Map<Integer, String> MESES = new HashMap<>();
