@@ -29,12 +29,18 @@ public class CFDI {
     private String totalImpuestoTrasladados;
     private String baseIVA0;
     private String tipoFactor;
+    private String fechaPago;
+    private String estatusPago;
 
+    private String trasladoIVAOriginal;
     private String trasladoIVA;
     private String tasaIVA;
 
     private String trasladoIEPS;
     private String tasaIEPS;
+
+    private String uuidPropio;
+    private String uuidReferencia;
 
     private Double base;
     private Double iva;
@@ -253,5 +259,45 @@ public class CFDI {
 
     public void setTipoFactor(String tipoFactor) {
         this.tipoFactor = tipoFactor;
+    }
+
+    public String getFechaPago() {
+        return fechaPago;
+    }
+
+    public void setFechaPago(String fechaPago) {
+        this.fechaPago = fechaPago;
+    }
+
+    public String getTrasladoIVAOriginal() {
+        return trasladoIVAOriginal;
+    }
+
+    public void setTrasladoIVAOriginal(String trasladoIVAOriginal) {
+        this.trasladoIVAOriginal = trasladoIVAOriginal;
+    }
+
+    public String getUuidPropio() {
+        return uuidPropio;
+    }
+
+    public void setUuidPropio(String uuidPropio) {
+        this.uuidPropio = uuidPropio;
+    }
+
+    public String getUuidReferencia() {
+        return uuidReferencia;
+    }
+
+    public void setUuidReferencia(String uuidReferencia) {
+        this.uuidReferencia = uuidReferencia;
+    }
+
+    public String getEstatusPago() {
+        return estatusPago;
+    }
+
+    public void setEstatusPago(String estatusPago) {
+        this.estatusPago = estatusPago;
     }
 }

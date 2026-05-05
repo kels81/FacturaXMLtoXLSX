@@ -40,6 +40,29 @@ public enum XmlNode {
             "FechaTimbrado", "NoCertificadoSAT", "RfcProvCertif",
             "SelloCFD", "SelloSAT", "UUID", "Version",
             "xmlns:tfd", "xmlns:xsi", "xsi:schemaLocation"
+    }),
+
+    PAGO20_PAGO("pago20:Pago", new String[]{
+            "FechaPago", "FormaDePagoP", "MonedaP", "Monto"
+    }),
+
+    PAGO10_PAGO("pago10:Pago", new String[]{
+            "FechaPago", "FormaDePagoP", "MonedaP", "Monto"
+    }),
+
+    PAGO20_TRASLADOP("pago20:TrasladoP", new String[]{
+            "BaseP", "ImporteP", "ImpuestoP", "TasaOCuotaP", "TipoFactorP"
+    }),
+
+    PAGO20_DOCTO("pago20:DoctoRelacionado", new String[]{
+            "IdDocumento", "MetodoDePagoDR", "MonedaDR",
+            "NomBancoOrdExt", "NumOperacion",
+            "ImpSaldoAnt", "ImpPagado", "ImpSaldoInsoluto"
+    }),
+
+    PAGO10_DOCTO("pago10:DoctoRelacionado", new String[]{
+            "IdDocumento", "MetodoDePagoDR", "MonedaDR",
+            "ImpSaldoAnt", "ImpPagado", "ImpSaldoInsoluto"
     });
 
     private final String nodeName;

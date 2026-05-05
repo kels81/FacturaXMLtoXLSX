@@ -21,6 +21,7 @@ public enum FormaPago {
     TARJETA_DEBITO("28", "Tarjeta de débito"),
     TARJETA_SERVICIOS("29", "Tarjeta de servicios"),
     APLICACION_ANTICIPOS("30", "Aplicación de anticipos"),
+    INTERMEDIARIO_PAGOS("31", "Intermediario de pagos"),
     POR_DEFINIR("99", "Por definir");
 
     private final String clave;
